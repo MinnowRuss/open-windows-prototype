@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { carePlan } from '../data/mockData';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import StatusBadge from '../components/StatusBadge';
 import styles from './CarePlan.module.css';
 
@@ -20,10 +21,10 @@ function GoalCard({ goal, index }) {
               <div className="progress-bar" style={{ flex: 1 }}>
                 <div
                   className={`progress-bar-fill ${goal.status === 'achieved' ? 'emerald' : ''}`}
-                  style={{ width: `${goal.progress}%` }}
+                  style={{ width: `${goal.progress ?? 0}%` }}
                 />
               </div>
-              <span className={styles.progressPct}>{goal.progress}%</span>
+              <span className={styles.progressPct}>{goal.progress ?? 0}%</span>
             </div>
           </div>
         </div>
@@ -42,78 +43,149 @@ function GoalCard({ goal, index }) {
 }
 
 export default function CarePlan() {
-  const { comfortGoals, medicalGoals, advanceDirective, lastUpdated, lastUpdatedBy } = carePlan;
-  const [adOpen, setAdOpen] = useState(false);
+  const { user } = useAuth();
+  const [plan, setPlan]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+  const [adOpen, setAdOpen]   = useState(false);
+
+  useEffect(() => {
+    if (!user?.patient?.id) { setLoading(false); return; }
+
+    const fetchCarePlan = async () => {
+      const { data, error } = await supabase
+        .from('care_plans')
+        .select('*')
+        .eq('patient_id', user.patient.id)
+        .maybeSingle();
+
+      if (error) {
+        setError('We couldn\'t load your care plan. Please refresh the page.');
+        console.error('CarePlan fetch error:', error);
+      } else {
+        setPlan(data);
+      }
+      setLoading(false);
+    };
+
+    fetchCarePlan();
+  }, [user?.patient?.id]);
+
+  if (loading) {
+    return (
+      <div className={`page-enter ${styles.page}`}>
+        <div className={styles.header}>
+          <h1 className={styles.title}>Care Plan</h1>
+          <p className={styles.updated}>Loading your care plan…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !plan) {
+    return (
+      <div className={`page-enter ${styles.page}`}>
+        <div className={styles.header}>
+          <h1 className={styles.title}>Care Plan</h1>
+          <p className={styles.updated}>{error || 'Your care plan isn\'t available yet. Your care team will add it soon.'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const comfortGoals = plan.comfort_goals || [];
+  const medicalGoals = plan.medical_goals || [];
+  const lastUpdated  = plan.updated_at;
+  const lastUpdatedBy = plan.last_updated_by;
+
+  const advanceDirective = plan.advance_directive_text ? {
+    text:                 plan.advance_directive_text,
+    signedDate:           plan.advance_directive_signed_at,
+    healthcareProxyName:  plan.healthcare_proxy_name,
+  } : null;
 
   return (
     <div className={`page-enter ${styles.page}`}>
       <div className={styles.header}>
         <h1 className={styles.title}>Care Plan</h1>
-        <p className={styles.updated}>
-          Last updated {new Date(lastUpdated).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} by {lastUpdatedBy}
-        </p>
+        {lastUpdated && (
+          <p className={styles.updated}>
+            Last updated {new Date(lastUpdated).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            {lastUpdatedBy && ` by ${lastUpdatedBy}`}
+          </p>
+        )}
       </div>
 
-      <section className={styles.section} aria-labelledby="comfort-heading">
-        <h2 id="comfort-heading" className={styles.sectionTitle}>
-          <span className={styles.sectionIcon} aria-hidden="true">♡</span>
-          Comfort Goals
-        </h2>
-        <p className={styles.sectionDesc}>These are the personal goals that focus on your quality of life and how you feel each day.</p>
-        <div className={styles.goalList}>
-          {comfortGoals.map((g, i) => <GoalCard key={g.id} goal={g} index={i} />)}
-        </div>
-      </section>
-
-      <section className={styles.section} aria-labelledby="medical-heading">
-        <h2 id="medical-heading" className={styles.sectionTitle}>
-          <span className={styles.sectionIcon} aria-hidden="true">⊕</span>
-          Medical Goals
-        </h2>
-        <p className={styles.sectionDesc}>These are the medical goals your care team is working toward to keep you stable and comfortable.</p>
-        <div className={styles.goalList}>
-          {medicalGoals.map((g, i) => <GoalCard key={g.id} goal={g} index={i} />)}
-        </div>
-      </section>
-
-      <section className={styles.section} aria-labelledby="ad-heading">
-        <h2 id="ad-heading" className={styles.sectionTitle}>
-          <span className={styles.sectionIcon} aria-hidden="true">✦</span>
-          Advance Directive
-        </h2>
-        <div className={`card ${styles.adCard}`}>
-          <div className={styles.adMeta}>
-            <div className={styles.adMetaItem}>
-              <span className={styles.adLabel}>Signed</span>
-              <span className={styles.adValue}>
-                {new Date(advanceDirective.signedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-              </span>
-            </div>
-            <div className={styles.adMetaItem}>
-              <span className={styles.adLabel}>Healthcare Proxy</span>
-              <span className={styles.adValue}>{advanceDirective.healthcareProxyName}</span>
-            </div>
+      {comfortGoals.length > 0 && (
+        <section className={styles.section} aria-labelledby="comfort-heading">
+          <h2 id="comfort-heading" className={styles.sectionTitle}>
+            <span className={styles.sectionIcon} aria-hidden="true">♡</span>
+            Comfort Goals
+          </h2>
+          <p className={styles.sectionDesc}>These are the personal goals that focus on your quality of life and how you feel each day.</p>
+          <div className={styles.goalList}>
+            {comfortGoals.map((g, i) => <GoalCard key={g.id || i} goal={g} index={i} />)}
           </div>
+        </section>
+      )}
 
-          <button
-            className={styles.adToggle}
-            onClick={() => setAdOpen(o => !o)}
-            aria-expanded={adOpen}
-          >
-            {adOpen ? 'Hide document' : 'Read my advance directive'}
-            <ChevronIcon open={adOpen} />
-          </button>
+      {medicalGoals.length > 0 && (
+        <section className={styles.section} aria-labelledby="medical-heading">
+          <h2 id="medical-heading" className={styles.sectionTitle}>
+            <span className={styles.sectionIcon} aria-hidden="true">⊕</span>
+            Medical Goals
+          </h2>
+          <p className={styles.sectionDesc}>These are the medical goals your care team is working toward to keep you stable and comfortable.</p>
+          <div className={styles.goalList}>
+            {medicalGoals.map((g, i) => <GoalCard key={g.id || i} goal={g} index={i} />)}
+          </div>
+        </section>
+      )}
 
-          {adOpen && (
-            <div className={styles.adText} aria-label="Advance directive text">
-              {advanceDirective.text.split('\n\n').map((para, i) => (
-                <p key={i}>{para}</p>
-              ))}
-              <p className={styles.adReadOnly}><em>This document is read-only. Contact your care team if you need to make changes.</em></p>
+      {advanceDirective && (
+        <section className={styles.section} aria-labelledby="ad-heading">
+          <h2 id="ad-heading" className={styles.sectionTitle}>
+            <span className={styles.sectionIcon} aria-hidden="true">✦</span>
+            Advance Directive
+          </h2>
+          <div className={`card ${styles.adCard}`}>
+            <div className={styles.adMeta}>
+              {advanceDirective.signedDate && (
+                <div className={styles.adMetaItem}>
+                  <span className={styles.adLabel}>Signed</span>
+                  <span className={styles.adValue}>
+                    {new Date(advanceDirective.signedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </div>
+              )}
+              {advanceDirective.healthcareProxyName && (
+                <div className={styles.adMetaItem}>
+                  <span className={styles.adLabel}>Healthcare Proxy</span>
+                  <span className={styles.adValue}>{advanceDirective.healthcareProxyName}</span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </section>
+
+            <button
+              className={styles.adToggle}
+              onClick={() => setAdOpen(o => !o)}
+              aria-expanded={adOpen}
+            >
+              {adOpen ? 'Hide document' : 'Read my advance directive'}
+              <ChevronIcon open={adOpen} />
+            </button>
+
+            {adOpen && (
+              <div className={styles.adText} aria-label="Advance directive text">
+                {advanceDirective.text.split('\n\n').map((para, i) => (
+                  <p key={i}>{para}</p>
+                ))}
+                <p className={styles.adReadOnly}><em>This document is read-only. Contact your care team if you need to make changes.</em></p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

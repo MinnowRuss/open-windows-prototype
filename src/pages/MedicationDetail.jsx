@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { medications } from '../data/mockData';
+import { supabase } from '../lib/supabase';
 import StatusBadge from '../components/StatusBadge';
 import styles from './MedicationDetail.module.css';
 
@@ -8,11 +9,56 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
+function normalizeMed(m) {
+  return {
+    ...m,
+    genericName:      m.name,
+    sideEffects:      Array.isArray(m.side_effects) ? m.side_effects : [],
+    deliveryDate:     m.delivery_date,
+    expectedDelivery: m.expected_delivery,
+  };
+}
+
 export default function MedicationDetail() {
   const { id } = useParams();
-  const med = medications.find(m => m.id === id);
+  const [med, setMed]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
-  if (!med) {
+  useEffect(() => {
+    const fetchMed = async () => {
+      const { data, error } = await supabase
+        .from('medications')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('MedicationDetail fetch error:', error);
+        setNotFound(true);
+      } else if (!data) {
+        setNotFound(true);
+      } else {
+        setMed(normalizeMed(data));
+      }
+      setLoading(false);
+    };
+
+    fetchMed();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className={styles.page}>
+        <Link to="/medications" className={styles.backLink}>
+          <ArrowLeftIcon /> Back to all medications
+        </Link>
+        <p style={{ padding: 'var(--space-8)' }}>Loading medication details…</p>
+      </div>
+    );
+  }
+
+  if (notFound || !med) {
     return (
       <div className={styles.notFound}>
         <p>Medication not found.</p>
@@ -30,7 +76,7 @@ export default function MedicationDetail() {
       <div className={styles.hero}>
         <div className={styles.heroMeta}>
           <StatusBadge status={med.status} />
-          <span className={styles.route}>{med.route}</span>
+          {med.route && <span className={styles.route}>{med.route}</span>}
         </div>
         <h1 className={styles.name}>{med.genericName || med.name}</h1>
         <div className={styles.dosageRow}>
@@ -41,12 +87,14 @@ export default function MedicationDetail() {
       </div>
 
       <div className={styles.sections}>
-        <section className={`card ${styles.section}`} aria-labelledby="purpose-heading">
-          <h2 id="purpose-heading" className={styles.sectionTitle}>What this medication does</h2>
-          <p className={styles.sectionText}>{med.purpose}</p>
-        </section>
+        {med.purpose && (
+          <section className={`card ${styles.section}`} aria-labelledby="purpose-heading">
+            <h2 id="purpose-heading" className={styles.sectionTitle}>What this medication does</h2>
+            <p className={styles.sectionText}>{med.purpose}</p>
+          </section>
+        )}
 
-        {med.sideEffects?.length > 0 && (
+        {med.sideEffects.length > 0 && (
           <section className={`card ${styles.section}`} aria-labelledby="side-effects-heading">
             <h2 id="side-effects-heading" className={styles.sectionTitle}>Things to know</h2>
             <ul className={styles.sideEffectsList}>
@@ -71,12 +119,6 @@ export default function MedicationDetail() {
               <div className={styles.deliveryItem}>
                 <span className={styles.deliveryLabel}>Delivered on</span>
                 <span className={styles.deliveryValue}>{formatDate(med.deliveryDate)}</span>
-              </div>
-            )}
-            {med.deliveredBy && (
-              <div className={styles.deliveryItem}>
-                <span className={styles.deliveryLabel}>Delivered by</span>
-                <span className={styles.deliveryValue}>{med.deliveredBy}</span>
               </div>
             )}
             {med.expectedDelivery && !med.deliveryDate && (
