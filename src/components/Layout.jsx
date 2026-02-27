@@ -25,7 +25,7 @@ export default function Layout({ children }) {
             </div>
 
             <div className={styles.headerRight}>
-              {user && (
+              {user?.patient && (
                 <span className={styles.patientName}>
                   {user.patient.firstName} {user.patient.lastName}
                 </span>

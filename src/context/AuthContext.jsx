@@ -58,14 +58,15 @@ export function AuthProvider({ children }) {
       .from('patients')
       .select('*')
       .eq('user_id', authUser.id)
-      .single();
+      // maybeSingle: returns null (no error) when 0 rows — avoids noisy PGRST116
+      .maybeSingle();
 
     if (error) {
       console.error('Could not load patient record:', error.message);
       // Auth succeeded but no patient row found — still set basic user
       setUser({ id: authUser.id, email: authUser.email, role: 'patient', patient: null });
     } else {
-      setUser({ id: authUser.id, email: authUser.email, role: 'patient', patient: normalizePatient(patient) });
+      setUser({ id: authUser.id, email: authUser.email, role: 'patient', patient: patient ? normalizePatient(patient) : null });
     }
 
     setLoading(false);
