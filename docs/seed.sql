@@ -13,7 +13,7 @@
 -- Get this from: Authentication → Users → Margaret's row → UUID column
 DO $$
 DECLARE
-  margaret_user_id  UUID := 'PASTE-MARGARET-UUID-HERE';
+  margaret_user_id  UUID := '2ccdd11d-564b-4601-ac80-71382a16fe34';
   patient_id        UUID := gen_random_uuid();
   cp_id             UUID := gen_random_uuid();
 
@@ -37,7 +37,8 @@ VALUES (
   'patient',
   now() - interval '30 days',
   now() - interval '1 day'
-);
+)
+ON CONFLICT (id) DO NOTHING;   -- row already exists if Supabase auto-created it on auth signup
 
 -- ============================================================
 -- 2. PATIENT
