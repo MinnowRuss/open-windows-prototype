@@ -24,8 +24,9 @@ export default function Login() {
     try {
       const result = await login(email, password);
       if (result.success) navigate('/');
-    } catch {
-      setError('We couldn\'t sign you in. Please check your email and password and try again.');
+    } catch (err) {
+      // Real error messages come from AuthContext, which maps Supabase errors to plain language
+      setError(err.message || 'We couldn\'t sign you in. Please check your email and password and try again.');
     } finally {
       setLoading(false);
     }
