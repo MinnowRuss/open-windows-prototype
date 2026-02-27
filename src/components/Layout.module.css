@@ -1,0 +1,92 @@
+.shell {
+  display: flex;
+  min-height: 100dvh;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding-bottom: var(--nav-height-mobile);
+}
+
+@media (min-width: 1024px) {
+  .body {
+    margin-left: var(--nav-width-desktop);
+    padding-bottom: 0;
+  }
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--bg-base) 90%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.headerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.mobileLogo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (min-width: 1024px) {
+  .mobileLogo { display: none; }
+}
+
+.mobileLogoText {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.patientName {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: 400;
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .patientName { display: block; }
+}
+
+.iconBtn {
+  padding: var(--space-2);
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.main {
+  flex: 1;
+  padding: var(--space-6) var(--space-5);
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .main { padding: var(--space-8) var(--space-8); }
+}

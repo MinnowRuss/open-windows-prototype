@@ -1,0 +1,111 @@
+.page { max-width: var(--content-max-width); }
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.title { font-family: var(--font-display); font-size: var(--text-4xl); font-weight: 400; margin-bottom: var(--space-1); }
+.subtitle { font-size: var(--text-base); color: var(--text-secondary); }
+
+.sortRow { display: flex; gap: var(--space-2); align-items: center; }
+
+.list { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.memberCard {
+  display: flex;
+  gap: var(--space-5);
+  align-items: flex-start;
+  padding: var(--space-6);
+}
+
+@media (max-width: 640px) {
+  .memberCard { flex-direction: column; }
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  border-radius: var(--radius-full);
+  background: var(--avatar-bg);
+  color: var(--avatar-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+html.dark .avatar {
+  background: var(--avatar-bg-dark);
+  color: var(--avatar-text-dark);
+}
+
+.memberInfo { flex: 1; }
+
+.memberHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.memberName {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.roleBadge {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--rb-bg);
+  color: var(--rb-text);
+}
+
+html.dark .roleBadge {
+  background: var(--rb-bg-dark);
+  color: var(--rb-text-dark);
+}
+
+.memberBio {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+  margin-bottom: var(--space-3);
+}
+
+.memberSchedule {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-bottom: var(--space-4);
+}
+
+.contactRow {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.contactBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}

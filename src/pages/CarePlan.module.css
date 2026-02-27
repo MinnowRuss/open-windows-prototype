@@ -1,0 +1,175 @@
+.page { max-width: var(--content-max-width); }
+
+.header { margin-bottom: var(--space-10); }
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: 400;
+  margin-bottom: var(--space-2);
+}
+
+.updated { font-size: var(--text-sm); color: var(--text-muted); }
+
+.section { margin-bottom: var(--space-10); }
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sectionIcon { color: var(--accent-primary); font-style: normal; font-size: var(--text-xl); }
+
+.sectionDesc { font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-5); line-height: var(--leading-relaxed); }
+
+.goalList { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.goalCard {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  transition: box-shadow var(--duration-quick) var(--ease-out);
+}
+.goalCard:hover { box-shadow: var(--shadow-md); }
+
+.goalBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  min-height: 80px;
+}
+
+.goalLeft { display: flex; align-items: flex-start; gap: var(--space-4); flex: 1; }
+
+.goalNumber {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+
+.goalMid { flex: 1; }
+
+.goalText {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: var(--space-3);
+  line-height: var(--leading-snug);
+}
+
+.progressRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.progressPct {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.goalRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.goalNotes {
+  padding: 0 var(--space-5) var(--space-5);
+  padding-left: calc(var(--space-5) + 36px + var(--space-4));
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  animation: expandIn var(--duration-normal) var(--ease-out);
+}
+.goalNotes p {
+  padding-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+@keyframes expandIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ---- Advance Directive ---- */
+.adCard { }
+
+.adMeta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.adMetaItem { display: flex; flex-direction: column; gap: var(--space-1); }
+
+.adLabel {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.adValue {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.adToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--accent-primary);
+  padding: 0;
+  min-height: 44px;
+}
+
+.adText {
+  margin-top: var(--space-5);
+  padding: var(--space-5);
+  background: var(--bg-subtle);
+  border-radius: var(--radius-lg);
+  border-left: 3px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  animation: expandIn var(--duration-normal) var(--ease-out);
+}
+
+.adText p {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+.adReadOnly { color: var(--text-muted) !important; font-size: var(--text-sm) !important; }
