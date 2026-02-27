@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { messages as initialMessages } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import styles from './Messages.module.css';
 
 function formatTime(iso) {
@@ -11,44 +12,124 @@ function formatTime(iso) {
     d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
+// Map Supabase row → shape the UI expects
+function normalizeMessage(m) {
+  return {
+    id:            m.id,
+    senderName:    m.sender_name,
+    senderRole:    m.sender_role,
+    isFromPatient: m.is_from_patient,
+    text:          m.message_text,
+    sentAt:        m.sent_at,
+    readAt:        m.read_at,
+  };
+}
+
 export default function Messages() {
-  const [msgs, setMsgs] = useState(() =>
-    [...initialMessages].sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt))
-  );
-  const [draft, setDraft] = useState('');
+  const { user } = useAuth();
+  const [msgs, setMsgs]       = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+  const [draft, setDraft]     = useState('');
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState(null);
   const bottomRef = useRef(null);
 
-  // Mark team messages as read when page loads
+  // ── Fetch messages ──────────────────────────────────────────
   useEffect(() => {
-    setMsgs(prev => prev.map(m => (!m.isFromPatient && !m.readAt) ? { ...m, readAt: new Date().toISOString() } : m));
-  }, []);
+    if (!user?.patient?.id) { setLoading(false); return; }
 
+    const fetchMessages = async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('patient_id', user.patient.id)
+        .order('sent_at');
+
+      if (error) {
+        setError('We couldn\'t load your messages. Please refresh the page.');
+        console.error('Messages fetch error:', error);
+      } else {
+        // Mark incoming messages as visually read (optimistic — no UPDATE RLS needed)
+        setMsgs((data || []).map(m =>
+          normalizeMessage(!m.is_from_patient && !m.read_at
+            ? { ...m, read_at: new Date().toISOString() }
+            : m
+          )
+        ));
+      }
+      setLoading(false);
+    };
+
+    fetchMessages();
+  }, [user?.patient?.id]);
+
+  // ── Auto-scroll to bottom ───────────────────────────────────
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [msgs]);
 
+  // ── Send message ────────────────────────────────────────────
   const send = async () => {
-    if (!draft.trim()) return;
+    if (!draft.trim() || !user?.patient?.id) return;
     setSending(true);
-    await new Promise(r => setTimeout(r, 600));
-    const newMsg = {
-      id: `msg-new-${Date.now()}`,
-      senderName: 'Margaret Chen',
-      senderRole: null,
-      isFromPatient: true,
-      text: draft.trim(),
-      sentAt: new Date().toISOString(),
-      readAt: null,
+    setSendError(null);
+
+    const senderName = user.patient.firstName && user.patient.lastName
+      ? `${user.patient.firstName} ${user.patient.lastName}`
+      : 'Patient';
+
+    const newRow = {
+      patient_id:     user.patient.id,
+      sender_name:    senderName,
+      sender_role:    null,
+      recipient_type: 'team',
+      message_text:   draft.trim(),
+      is_from_patient: true,
     };
-    setMsgs(prev => [...prev, newMsg]);
-    setDraft('');
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert(newRow)
+      .select()
+      .single();
+
+    if (error) {
+      setSendError('Your message couldn\'t be sent. Please try again.');
+      console.error('Message send error:', error);
+    } else {
+      setMsgs(prev => [...prev, normalizeMessage(data)]);
+      setDraft('');
+    }
+
     setSending(false);
   };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
+
+  if (loading) {
+    return (
+      <div className={`page-enter ${styles.page}`}>
+        <div className={styles.header}>
+          <h1 className={styles.title}>Messages</h1>
+          <p className={styles.subtitle}>Loading your messages…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`page-enter ${styles.page}`}>
+        <div className={styles.header}>
+          <h1 className={styles.title}>Messages</h1>
+          <p className={styles.subtitle}>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`page-enter ${styles.page}`}>
@@ -58,6 +139,11 @@ export default function Messages() {
       </div>
 
       <div className={styles.conversation} role="log" aria-label="Message conversation" aria-live="polite">
+        {msgs.length === 0 && (
+          <p style={{ textAlign: 'center', color: 'var(--color-slate-500)', padding: 'var(--space-8)' }}>
+            No messages yet. Send a message to your care team below.
+          </p>
+        )}
         {msgs.map((msg, i) => {
           const showDate = i === 0 ||
             new Date(msg.sentAt).toDateString() !== new Date(msgs[i - 1].sentAt).toDateString();
@@ -88,6 +174,11 @@ export default function Messages() {
 
       <div className={styles.composeArea}>
         <div className={styles.composeCard}>
+          {sendError && (
+            <p style={{ color: 'var(--color-rose-600)', fontSize: 'var(--text-sm)', margin: '0 0 var(--space-2)' }}>
+              {sendError}
+            </p>
+          )}
           <label htmlFor="message-input" className="sr-only">Write a message to your care team</label>
           <textarea
             id="message-input"

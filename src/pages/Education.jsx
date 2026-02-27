@@ -1,25 +1,93 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { articles } from '../data/mockData';
+import { supabase } from '../lib/supabase';
 import styles from './Education.module.css';
 
-const CATEGORIES = ['All', ...new Set(articles.map(a => a.category))];
+function normalizeArticle(a) {
+  return {
+    id:            a.id,
+    title:         a.title,
+    category:      a.category,
+    summary:       a.summary,
+    content:       a.content_text,
+    readingTime:   a.reading_time_minutes,
+    publishedDate: a.published_date,
+  };
+}
 
 export default function Education() {
-  const [category, setCategory] = useState('All');
-  const [search, setSearch] = useState('');
-  const [favorites, setFavorites] = useState(() => new Set(articles.filter(a => a.isFavorited).map(a => a.id)));
+  const [articles, setArticles]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState(null);
+  const [category, setCategory]   = useState('All');
+  const [search, setSearch]       = useState('');
+  // Favorites are session-local (no DB column for this in MVP)
+  const [favorites, setFavorites] = useState(() => {
+    try { return new Set(JSON.parse(sessionStorage.getItem('ow-favorites') || '[]')); }
+    catch { return new Set(); }
+  });
+
+  useEffect(() => {
+    const fetchArticles = async () => {
+      const { data, error } = await supabase
+        .from('educational_content')
+        .select('id, title, category, summary, content_text, reading_time_minutes, published_date')
+        .eq('is_active', true)
+        .order('published_date', { ascending: false });
+
+      if (error) {
+        setError('We couldn\'t load the articles. Please refresh the page.');
+        console.error('Education fetch error:', error);
+      } else {
+        setArticles((data || []).map(normalizeArticle));
+      }
+      setLoading(false);
+    };
+
+    fetchArticles();
+  }, []);
+
+  const categories = ['All', ...new Set(articles.map(a => a.category))];
 
   const filtered = articles.filter(a => {
-    const matchesCat = category === 'All' || a.category === category;
-    const matchesSearch = !search || a.title.toLowerCase().includes(search.toLowerCase()) || a.summary.toLowerCase().includes(search.toLowerCase());
+    const matchesCat    = category === 'All' || a.category === category;
+    const matchesSearch = !search ||
+      a.title.toLowerCase().includes(search.toLowerCase()) ||
+      (a.summary || '').toLowerCase().includes(search.toLowerCase());
     return matchesCat && matchesSearch;
   });
 
   const toggleFav = (id, e) => {
     e.preventDefault();
-    setFavorites(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    setFavorites(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      sessionStorage.setItem('ow-favorites', JSON.stringify([...next]));
+      return next;
+    });
   };
+
+  if (loading) {
+    return (
+      <div className={`page-enter ${styles.page}`}>
+        <div className={styles.header}>
+          <h1 className={styles.title}>Educational Resources</h1>
+          <p className={styles.subtitle}>Loading articles…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`page-enter ${styles.page}`}>
+        <div className={styles.header}>
+          <h1 className={styles.title}>Educational Resources</h1>
+          <p className={styles.subtitle}>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`page-enter ${styles.page}`}>
@@ -45,7 +113,7 @@ export default function Education() {
         </div>
 
         <div className={styles.tabs} role="tablist" aria-label="Filter by category">
-          {CATEGORIES.map(cat => (
+          {categories.map(cat => (
             <button
               key={cat}
               role="tab"

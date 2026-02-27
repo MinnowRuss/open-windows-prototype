@@ -1,6 +1,7 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { dashboardSummary, appointments } from '../data/mockData';
+import { supabase } from '../lib/supabase';
 import styles from './Dashboard.module.css';
 
 function formatDate(isoStr) {
@@ -18,15 +19,95 @@ function greeting() {
   return 'Good evening';
 }
 
+const INITIAL = {
+  appointments: [],
+  nextAppointment: null,
+  medicationCount: 0,
+  unreadMessageCount: 0,
+  carePlanStatus: 'On Track',
+  carePlanGoalsAchieved: 0,
+  carePlanGoalsTotal: 0,
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
-  const { nextAppointment, medicationCount, unreadMessageCount, carePlanStatus, carePlanGoalsAchieved, carePlanGoalsTotal } = dashboardSummary;
+  const [data, setData] = useState(INITIAL);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user?.patient?.id) { setLoading(false); return; }
+    const patientId = user.patient.id;
+
+    const fetchDashboard = async () => {
+      const now = new Date().toISOString();
+
+      const [apptRes, medRes, msgRes, cpRes] = await Promise.all([
+        supabase
+          .from('appointments')
+          .select('*, care_team_members(name)')
+          .eq('patient_id', patientId)
+          .gte('scheduled_at', now)
+          .order('scheduled_at')
+          .limit(3),
+        supabase
+          .from('medications')
+          .select('id')
+          .eq('patient_id', patientId),
+        supabase
+          .from('messages')
+          .select('id')
+          .eq('patient_id', patientId)
+          .eq('is_from_patient', false)
+          .is('read_at', null),
+        supabase
+          .from('care_plans')
+          .select('comfort_goals, medical_goals')
+          .eq('patient_id', patientId)
+          .maybeSingle(),
+      ]);
+
+      const appointments = (apptRes.data || []).map(a => ({
+        id:                 a.id,
+        type:               a.appointment_type || 'Visit',
+        careTeamMemberName: a.care_team_members?.name || 'Your care team',
+        scheduledAt:        a.scheduled_at,
+        durationMinutes:    a.duration_minutes,
+        location:           a.location,
+        notes:              a.notes,
+        confirmed:          !!a.confirmed_at,
+      }));
+
+      const comfortGoals = cpRes.data?.comfort_goals || [];
+      const medicalGoals = cpRes.data?.medical_goals || [];
+      const allGoals = [...comfortGoals, ...medicalGoals];
+      const goalsAchieved = allGoals.filter(g => g.status === 'achieved').length;
+
+      setData({
+        appointments,
+        nextAppointment:        appointments[0] || null,
+        medicationCount:        (medRes.data || []).length,
+        unreadMessageCount:     (msgRes.data || []).length,
+        carePlanStatus:         'On Track',
+        carePlanGoalsAchieved:  goalsAchieved,
+        carePlanGoalsTotal:     allGoals.length,
+      });
+      setLoading(false);
+    };
+
+    fetchDashboard();
+  }, [user?.patient?.id]);
+
+  const { nextAppointment, medicationCount, unreadMessageCount,
+          carePlanStatus, carePlanGoalsAchieved, carePlanGoalsTotal,
+          appointments } = data;
+
+  const firstName = user?.patient?.firstName || 'there';
 
   return (
     <div className={`page-enter ${styles.page}`}>
       <div className={styles.welcomeBlock}>
         <h1 className={styles.greeting}>
-          {greeting()}, <span>{user?.patient.firstName}.</span>
+          {greeting()}, <span>{firstName}.</span>
         </h1>
         <p className={styles.welcomeText}>
           Here's everything happening with your care today.
@@ -38,33 +119,44 @@ export default function Dashboard() {
         <Link to="/appointments" className={`card ${styles.card} ${styles.cardAppointment}`} aria-label="Next appointment">
           <div className={styles.cardIcon} aria-hidden="true"><CalendarIcon /></div>
           <div className={styles.cardLabel}>Next Appointment</div>
-          <div className={styles.cardValue}>{nextAppointment.type}</div>
-          <div className={styles.cardSub}>
-            {formatDate(nextAppointment.scheduledAt)} at {formatTime(nextAppointment.scheduledAt)}
-          </div>
-          <div className={styles.cardMeta}>{nextAppointment.careTeamMemberName}</div>
+          {loading ? (
+            <div className={styles.cardValue}>—</div>
+          ) : nextAppointment ? (
+            <>
+              <div className={styles.cardValue}>{nextAppointment.type}</div>
+              <div className={styles.cardSub}>
+                {formatDate(nextAppointment.scheduledAt)} at {formatTime(nextAppointment.scheduledAt)}
+              </div>
+              <div className={styles.cardMeta}>{nextAppointment.careTeamMemberName}</div>
+            </>
+          ) : (
+            <>
+              <div className={styles.cardValue}>None scheduled</div>
+              <div className={styles.cardSub}>No upcoming appointments</div>
+            </>
+          )}
         </Link>
 
         {/* Medications */}
         <Link to="/medications" className={`card ${styles.card}`} aria-label={`${medicationCount} medications`}>
           <div className={styles.cardIcon} aria-hidden="true"><PillIcon /></div>
           <div className={styles.cardLabel}>Medications</div>
-          <div className={styles.cardValue}>{medicationCount}</div>
+          <div className={styles.cardValue}>{loading ? '—' : medicationCount}</div>
           <div className={styles.cardSub}>current medications</div>
           <div className={styles.cardCta}>View all →</div>
         </Link>
 
         {/* Messages */}
-        <Link to="/messages" className={`card ${styles.card} ${unreadMessageCount > 0 ? styles.cardUnread : ''}`} aria-label={`${unreadMessageCount} unread messages`}>
+        <Link to="/messages" className={`card ${styles.card} ${!loading && unreadMessageCount > 0 ? styles.cardUnread : ''}`} aria-label={`${unreadMessageCount} unread messages`}>
           <div className={styles.cardIcon} aria-hidden="true"><MessageIcon /></div>
           <div className={styles.cardLabel}>Messages</div>
           <div className={styles.cardValue}>
-            {unreadMessageCount > 0
+            {loading ? '—' : unreadMessageCount > 0
               ? <>{unreadMessageCount} <span className={styles.unreadDot} aria-hidden="true" /></>
               : 0}
           </div>
           <div className={styles.cardSub}>
-            {unreadMessageCount > 0 ? 'unread messages from your team' : 'no new messages'}
+            {!loading && unreadMessageCount > 0 ? 'unread messages from your team' : 'no new messages'}
           </div>
           <div className={styles.cardCta}>View messages →</div>
         </Link>
@@ -73,9 +165,9 @@ export default function Dashboard() {
         <Link to="/care-plan" className={`card ${styles.card}`} aria-label="Care plan status">
           <div className={styles.cardIcon} aria-hidden="true"><ClipboardIcon /></div>
           <div className={styles.cardLabel}>Care Plan</div>
-          <div className={styles.cardValue}>{carePlanStatus}</div>
+          <div className={styles.cardValue}>{loading ? '—' : carePlanStatus}</div>
           <div className={styles.cardSub}>
-            {carePlanGoalsAchieved} of {carePlanGoalsTotal} goals achieved
+            {!loading && `${carePlanGoalsAchieved} of ${carePlanGoalsTotal} goals achieved`}
           </div>
           <div className={styles.cardCta}>View plan →</div>
         </Link>
@@ -84,28 +176,34 @@ export default function Dashboard() {
       {/* Today's schedule */}
       <section className={styles.section} aria-labelledby="schedule-heading">
         <h2 id="schedule-heading" className={styles.sectionTitle}>Upcoming Visits</h2>
-        <div className={styles.appointmentList}>
-          {appointments.slice(0, 3).map(appt => (
-            <div key={appt.id} className={styles.appointmentRow}>
-              <div className={styles.apptDate}>
-                <span className={styles.apptDay}>
-                  {new Date(appt.scheduledAt).toLocaleDateString('en-US', { weekday: 'short' })}
-                </span>
-                <span className={styles.apptNum}>
-                  {new Date(appt.scheduledAt).getDate()}
-                </span>
+        {loading ? (
+          <p className={styles.loadingText}>Loading your schedule…</p>
+        ) : appointments.length === 0 ? (
+          <p className={styles.emptyText}>No upcoming visits scheduled.</p>
+        ) : (
+          <div className={styles.appointmentList}>
+            {appointments.map(appt => (
+              <div key={appt.id} className={styles.appointmentRow}>
+                <div className={styles.apptDate}>
+                  <span className={styles.apptDay}>
+                    {new Date(appt.scheduledAt).toLocaleDateString('en-US', { weekday: 'short' })}
+                  </span>
+                  <span className={styles.apptNum}>
+                    {new Date(appt.scheduledAt).getDate()}
+                  </span>
+                </div>
+                <div className={styles.apptInfo}>
+                  <div className={styles.apptType}>{appt.type}</div>
+                  <div className={styles.apptMember}>{appt.careTeamMemberName}</div>
+                  <div className={styles.apptTime}>{formatTime(appt.scheduledAt)}</div>
+                </div>
+                {appt.confirmed && (
+                  <span className={styles.confirmedBadge}>Confirmed</span>
+                )}
               </div>
-              <div className={styles.apptInfo}>
-                <div className={styles.apptType}>{appt.type}</div>
-                <div className={styles.apptMember}>{appt.careTeamMemberName}</div>
-                <div className={styles.apptTime}>{formatTime(appt.scheduledAt)}</div>
-              </div>
-              {appt.confirmed && (
-                <span className={styles.confirmedBadge}>Confirmed</span>
-              )}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Quick links */}
@@ -113,9 +211,9 @@ export default function Dashboard() {
         <h2 id="quick-links-heading" className={styles.sectionTitle}>Quick Access</h2>
         <div className={styles.quickLinks}>
           {[
-            { to: '/care-team', label: 'Contact your care team', sub: '6 team members' },
-            { to: '/education', label: 'Browse educational articles', sub: '6 articles available' },
-            { to: '/settings', label: 'Adjust settings', sub: 'Text size, dark mode' },
+            { to: '/care-team',  label: 'Contact your care team',       sub: 'Call or email your team' },
+            { to: '/education',  label: 'Browse educational articles',  sub: 'Articles written for you' },
+            { to: '/settings',   label: 'Adjust settings',              sub: 'Text size, dark mode' },
           ].map(link => (
             <Link key={link.to} to={link.to} className={styles.quickLink}>
               <span className={styles.quickLinkLabel}>{link.label}</span>

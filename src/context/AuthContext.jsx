@@ -1,6 +1,21 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
+// Map Supabase snake_case patient row → camelCase shape used throughout the app
+function normalizePatient(p) {
+  return {
+    id:            p.id,
+    userId:        p.user_id,
+    firstName:     p.first_name,
+    lastName:      p.last_name,
+    dob:           p.dob,
+    phone:         p.phone,
+    address:       p.address,
+    currentStatus: p.current_status,
+    createdAt:     p.created_at,
+  };
+}
+
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -50,7 +65,7 @@ export function AuthProvider({ children }) {
       // Auth succeeded but no patient row found — still set basic user
       setUser({ id: authUser.id, email: authUser.email, role: 'patient', patient: null });
     } else {
-      setUser({ id: authUser.id, email: authUser.email, role: 'patient', patient });
+      setUser({ id: authUser.id, email: authUser.email, role: 'patient', patient: normalizePatient(patient) });
     }
 
     setLoading(false);
